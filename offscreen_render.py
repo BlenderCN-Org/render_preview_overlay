@@ -33,11 +33,6 @@ bl_info = {
 import bpy
 from bgl import *
 
-global mm
-mm = None
-global pm
-pm = None
-
 
 class OffScreenRender(bpy.types.Operator):
     bl_idname = "view3d.offscreen_render"
@@ -54,7 +49,7 @@ class OffScreenRender(bpy.types.Operator):
         aspect_ratio = scene.render.resolution_x / scene.render.resolution_y
 
         self._update_offscreen(context, self._offscreen)
-        self._opengl_draw(context, self._texture, aspect_ratio, 0.8)
+        self._opengl_draw(context, self._texture, aspect_ratio, 0.5)
 
     @staticmethod
     def handle_add(self, context):
@@ -78,7 +73,7 @@ class OffScreenRender(bpy.types.Operator):
         aspect_ratio = scene.render.resolution_x / scene.render.resolution_y
 
         try:
-            offscreen = gpu.offscreen.new(512, int(512 / aspect_ratio))
+            offscreen = gpu.offscreen.new(256, int(256 / aspect_ratio))
         except Exception as e:
             print(e)
             offscreen = None
@@ -87,27 +82,19 @@ class OffScreenRender(bpy.types.Operator):
 
     @staticmethod
     def _update_offscreen(context, offscreen):
-        global mm
-        global pm
-
         camera = context.scene.camera
 
         modelview_matrix = camera.matrix_world.inverted()
         projection_matrix = camera.calc_matrix_camera()
 
-        if (modelview_matrix != mm) or \
-           (projection_matrix != pm):
-            mm = modelview_matrix
-            pm = projection_matrix
-
-            offscreen.render_view3d(
-                    context.blend_data,
-                    context.scene,
-                    context.area,
-                    context.region,
-                    projection_matrix,
-                    modelview_matrix,
-                    )
+        offscreen.render_view3d(
+                context.blend_data,
+                context.scene,
+                context.area,
+                context.region,
+                projection_matrix,
+                modelview_matrix,
+                )
 
     @staticmethod
     def _opengl_draw(context, texture, aspect_ratio, scale):
