@@ -46,16 +46,15 @@ class OffScreenRender(bpy.types.Operator):
     @staticmethod
     def draw_callback_px(self, context):
         scene = context.scene
-        aspect_ratio = scene.render.resolution_x / scene.render.resolution_y
 
         self._update_offscreen(context, self._offscreen)
-        self._opengl_draw(context, self._texture, aspect_ratio, 0.5)
+        self._opengl_draw(context, self._texture)
 
     @staticmethod
     def handle_add(self, context):
         OffScreenRender._handle_draw = bpy.types.SpaceView3D.draw_handler_add(
                 self.draw_callback_px, (self, context),
-                'WINDOW', 'POST_PIXEL',
+                'WINDOW', 'PRE_VIEW',
                 )
 
     @staticmethod
@@ -69,11 +68,13 @@ class OffScreenRender(bpy.types.Operator):
     @staticmethod
     def _setup_offscreen(context):
         import gpu
-        scene = context.scene
-        aspect_ratio = scene.render.resolution_x / scene.render.resolution_y
+
+        region = context.region
+        width = region.width
+        height = region.height
 
         try:
-            offscreen = gpu.offscreen.new(256, int(256 / aspect_ratio))
+            offscreen = gpu.offscreen.new(width, height)
         except Exception as e:
             print(e)
             offscreen = None
@@ -97,7 +98,7 @@ class OffScreenRender(bpy.types.Operator):
                 )
 
     @staticmethod
-    def _opengl_draw(context, texture, aspect_ratio, scale):
+    def _opengl_draw(context, texture):
         """
         OpenGL code to draw a rectangle in the viewport
         """
@@ -118,15 +119,6 @@ class OffScreenRender(bpy.types.Operator):
 
         act_tex = Buffer(GL_INT, 1)
         glGetIntegerv(GL_TEXTURE_2D, act_tex)
-
-        viewport = Buffer(GL_INT, 4)
-        glGetIntegerv(GL_VIEWPORT, viewport)
-
-        width = int(scale * viewport[2])
-        height = int(width / aspect_ratio)
-
-        glViewport(viewport[0], viewport[1], width, height)
-        glScissor(viewport[0], viewport[1], width, height)
 
         # draw routine
         glEnable(GL_TEXTURE_2D)
@@ -158,9 +150,6 @@ class OffScreenRender(bpy.types.Operator):
 
         glMatrixMode(GL_MODELVIEW)
         glPopMatrix()
-
-        glViewport(viewport[0], viewport[1], viewport[2], viewport[3])
-        glScissor(viewport[0], viewport[1], viewport[2], viewport[3])
 
     # operator functions
     @classmethod
