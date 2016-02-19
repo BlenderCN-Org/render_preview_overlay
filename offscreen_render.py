@@ -38,31 +38,54 @@ class OffScreenRender(bpy.types.Operator):
     bl_idname = "view3d.offscreen_render"
     bl_label = "View3D Offscreen Render"
 
-    _handle_calc = None
-    _handle_draw = None
+    _handle_pre_draw = None
+    _handle_post_draw = None
+    _offscreen = None
+    _width = -1
+    _height = -1
     is_enabled = False
 
     # manage draw handler
     @staticmethod
-    def draw_callback_px(self, context):
+    def draw_callback(self, context):
         scene = context.scene
 
         self._update_offscreen(context, self._offscreen)
         self._opengl_draw(context, self._texture)
 
     @staticmethod
+    def draw_callback_pre_view(self, context):
+        wm = context.window_manager
+        if wm.offscreen_render_mode != 'FOREGROUND':
+            OffScreenRender.draw_callback(self, context)
+
+    @staticmethod
+    def draw_callback_post_view(self, context):
+        wm = context.window_manager
+        if wm.offscreen_render_mode != 'BACKGROUND':
+            OffScreenRender.draw_callback(self, context)
+
+    @staticmethod
     def handle_add(self, context):
-        OffScreenRender._handle_draw = bpy.types.SpaceView3D.draw_handler_add(
-                self.draw_callback_px, (self, context),
+        OffScreenRender._handle_pre_draw = bpy.types.SpaceView3D.draw_handler_add(
+                self.draw_callback_pre_view, (self, context),
                 'WINDOW', 'PRE_VIEW',
+                )
+        OffScreenRender._handle_post_draw = bpy.types.SpaceView3D.draw_handler_add(
+                self.draw_callback_post_view, (self, context),
+                'WINDOW', 'POST_VIEW',
                 )
 
     @staticmethod
     def handle_remove():
-        if OffScreenRender._handle_draw is not None:
-            bpy.types.SpaceView3D.draw_handler_remove(OffScreenRender._handle_draw, 'WINDOW')
+        if OffScreenRender._handle_pre_draw is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(OffScreenRender._handle_pre_draw, 'WINDOW')
 
-        OffScreenRender._handle_draw = None
+        if OffScreenRender._handle_post_draw is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(OffScreenRender._handle_post_draw, 'WINDOW')
+
+        OffScreenRender._handle_pre_draw = None
+        OffScreenRender._handle_post_draw = None
 
     # off-screen buffer
     @staticmethod
@@ -165,10 +188,19 @@ class OffScreenRender(bpy.types.Operator):
     def invoke(self, context, event):
         if OffScreenRender.is_enabled:
             self.cancel(context)
-
             return {'FINISHED'}
 
         else:
+            # TODO check if wireframe mode
+            if False:
+                self.report({'ERROR'}, "Offscreen render only supported in wireframe mode")
+                return {'CANCELLED'}
+
+            # TODO check if cycles is enabled
+            if False:
+                self.report({'ERROR'}, "Offscreen render only supported with Cycles")
+                return {'CANCELLED'}
+
             self._offscreen = OffScreenRender._setup_offscreen(context)
             if self._offscreen:
                 self._texture = self._offscreen.color_texture
@@ -188,6 +220,7 @@ class OffScreenRender(bpy.types.Operator):
     def cancel(self, context):
         OffScreenRender.handle_remove()
         OffScreenRender.is_enabled = False
+        OffScreenRender.offscreen = None
 
         if context.area:
             context.area.tag_redraw()
@@ -202,18 +235,32 @@ class OffScreenRenderPanel(bpy.types.Panel):
     @staticmethod
     def draw(self, context):
         layout = self.layout
+        col = layout.column()
 
         if OffScreenRender.is_enabled:
-            layout.operator("view3d.offscreen_render", icon="X")
+            wm = context.window_manager
+
+            col.operator("view3d.offscreen_render", icon="X")
+            col.row().prop(wm, "offscreen_render_mode", expand=True)
         else:
             layout.operator("view3d.offscreen_render", icon="CAMERA_STEREO")
 
 
 def register():
+    bpy.types.WindowManager.offscreen_render_mode = bpy.props.EnumProperty(
+            name='OffScreen Render Mode',
+            description="",
+            items=(("BACKGROUND", "Background", "Run the render preview in the background"),
+                   ("FOREGROUND", "Foreground", "Display the render preview in the foreground"),
+                   ),
+            default="BACKGROUND",
+            options={'SKIP_SAVE'},
+            )
     bpy.utils.register_class(OffScreenRender)
     bpy.utils.register_class(OffScreenRenderPanel)
 
 
 def unregister():
+    del bpy.types.WindowManager.offscreen_render_mode
     bpy.utils.unregister_class(OffScreenRenderPanel)
     bpy.utils.unregister_class(OffScreenRender)
