@@ -18,7 +18,7 @@
 
 # <pep8 compliant>
 bl_info = {
-    "name": "Offscreen Render",
+    "name": "Render Preview Overlay",
     "author": "Dalai Felinto",
     "version": (0, 9),
     "blender": (2, 7, 7),
@@ -34,9 +34,9 @@ import bpy
 from bgl import *
 
 
-class OffScreenRender(bpy.types.Operator):
-    bl_idname = "view3d.offscreen_render"
-    bl_label = "View3D Offscreen Render"
+class RenderPreviewOverlay(bpy.types.Operator):
+    bl_idname = "view3d.render_preview_overlay"
+    bl_label = "Render Preview Overlay"
 
     _handle_pre_draw = None
     _handle_post_draw = None
@@ -61,13 +61,13 @@ class OffScreenRender(bpy.types.Operator):
     @classmethod
     def draw_callback_pre_view(cls, context):
         wm = context.window_manager
-        if wm.offscreen_render_mode != 'FOREGROUND':
+        if wm.render_preview_overlay_mode != 'FOREGROUND':
             cls.draw_callback(context)
 
     @classmethod
     def draw_callback_post_view(cls, context):
         wm = context.window_manager
-        if wm.offscreen_render_mode != 'BACKGROUND':
+        if wm.render_preview_overlay_mode != 'BACKGROUND':
             cls.draw_callback(context)
 
     @classmethod
@@ -198,23 +198,23 @@ class OffScreenRender(bpy.types.Operator):
         return {'PASS_THROUGH'}
 
     def invoke(self, context, event):
-        if OffScreenRender.is_enabled:
+        if RenderPreviewOverlay.is_enabled:
             self.cancel(context)
             return {'FINISHED'}
 
         else:
             # TODO check if wireframe mode
             if False:
-                self.report({'ERROR'}, "Offscreen render only supported in wireframe mode")
+                self.report({'ERROR'}, "Render preview overlay render only supported in wireframe mode")
                 return {'CANCELLED'}
 
             # TODO check if cycles is enabled
             if False:
-                self.report({'ERROR'}, "Offscreen render only supported with Cycles")
+                self.report({'ERROR'}, "Render preview overlay only supported with Cycles")
                 return {'CANCELLED'}
 
-            OffScreenRender.handle_add(context)
-            OffScreenRender.is_enabled = True
+            RenderPreviewOverlay.handle_add(context)
+            RenderPreviewOverlay.is_enabled = True
 
             if context.area:
                 context.area.tag_redraw()
@@ -223,15 +223,15 @@ class OffScreenRender(bpy.types.Operator):
             return {'RUNNING_MODAL'}
 
     def cancel(self, context):
-        OffScreenRender.handle_remove()
-        OffScreenRender.is_enabled = False
+        RenderPreviewOverlay.handle_remove()
+        RenderPreviewOverlay.is_enabled = False
 
         if context.area:
             context.area.tag_redraw()
 
 
-class OffScreenRenderPanel(bpy.types.Panel):
-    bl_label = "OffScreen Render"
+class RenderPreviewOverlayPanel(bpy.types.Panel):
+    bl_label = "Render Preview Overlay"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     bl_category = 'Virtual Reality'
@@ -241,18 +241,18 @@ class OffScreenRenderPanel(bpy.types.Panel):
         layout = self.layout
         col = layout.column()
 
-        if OffScreenRender.is_enabled:
+        if RenderPreviewOverlay.is_enabled:
             wm = context.window_manager
 
-            col.operator("view3d.offscreen_render", icon="X")
-            col.row().prop(wm, "offscreen_render_mode", expand=True)
+            col.operator("view3d.render_preview_overlay", icon="X")
+            col.row().prop(wm, "render_preview_overlay_mode", expand=True)
         else:
-            layout.operator("view3d.offscreen_render", icon="CAMERA_STEREO")
+            layout.operator("view3d.render_preview_overlay", icon="CAMERA_STEREO")
 
 
 def register():
-    bpy.types.WindowManager.offscreen_render_mode = bpy.props.EnumProperty(
-            name='OffScreen Render Mode',
+    bpy.types.WindowManager.render_preview_overlay_mode = bpy.props.EnumProperty(
+            name='Render Preview Overlay Mode',
             description="",
             items=(("BACKGROUND", "Background", "Run the render preview in the background"),
                    ("FOREGROUND", "Foreground", "Display the render preview in the foreground"),
@@ -260,11 +260,11 @@ def register():
             default="BACKGROUND",
             options={'SKIP_SAVE'},
             )
-    bpy.utils.register_class(OffScreenRender)
-    bpy.utils.register_class(OffScreenRenderPanel)
+    bpy.utils.register_class(RenderPreviewOverlay)
+    bpy.utils.register_class(RenderPreviewOverlayPanel)
 
 
 def unregister():
-    del bpy.types.WindowManager.offscreen_render_mode
-    bpy.utils.unregister_class(OffScreenRenderPanel)
-    bpy.utils.unregister_class(OffScreenRender)
+    del bpy.types.WindowManager.render_preview_overlay_mode
+    bpy.utils.unregister_class(RenderPreviewOverlayPanel)
+    bpy.utils.unregister_class(RenderPreviewOverlay)
