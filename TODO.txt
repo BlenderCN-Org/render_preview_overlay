@@ -1,0 +1,7 @@
+throw errors:
+	# only run in wireframe mode
+	# only run in cycles
+	# only works with no border render
+
+bug:
+# dont reset rendering when switching back and front renders
