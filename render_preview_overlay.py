@@ -247,7 +247,7 @@ class RenderPreviewOverlayPanel(bpy.types.Panel):
             col.operator("view3d.render_preview_overlay", icon="X")
             col.row().prop(wm, "render_preview_overlay_mode", expand=True)
         else:
-            layout.operator("view3d.render_preview_overlay", icon="CAMERA_STEREO")
+            layout.operator("view3d.render_preview_overlay", icon="SMOOTH")
 
 
 def register():
