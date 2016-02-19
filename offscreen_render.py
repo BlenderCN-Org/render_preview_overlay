@@ -46,63 +46,75 @@ class OffScreenRender(bpy.types.Operator):
     is_enabled = False
 
     # manage draw handler
-    @staticmethod
-    def draw_callback(self, context):
+    @classmethod
+    def draw_callback(cls, context):
         scene = context.scene
+        offscreen = cls._offscreen_get(context)
 
-        self._update_offscreen(context, self._offscreen)
-        self._opengl_draw(context, self._texture)
+        # unexpected error
+        if not offscreen:
+            return
 
-    @staticmethod
-    def draw_callback_pre_view(self, context):
+        cls._update_offscreen(context, offscreen)
+        cls._opengl_draw(context, offscreen.color_texture)
+
+    @classmethod
+    def draw_callback_pre_view(cls, context):
         wm = context.window_manager
         if wm.offscreen_render_mode != 'FOREGROUND':
-            OffScreenRender.draw_callback(self, context)
+            cls.draw_callback(context)
 
-    @staticmethod
-    def draw_callback_post_view(self, context):
+    @classmethod
+    def draw_callback_post_view(cls, context):
         wm = context.window_manager
         if wm.offscreen_render_mode != 'BACKGROUND':
-            OffScreenRender.draw_callback(self, context)
+            cls.draw_callback(context)
 
-    @staticmethod
-    def handle_add(self, context):
-        OffScreenRender._handle_pre_draw = bpy.types.SpaceView3D.draw_handler_add(
-                self.draw_callback_pre_view, (self, context),
+    @classmethod
+    def handle_add(cls, context):
+        cls._handle_pre_draw = bpy.types.SpaceView3D.draw_handler_add(
+                cls.draw_callback_pre_view, (context,),
                 'WINDOW', 'PRE_VIEW',
                 )
-        OffScreenRender._handle_post_draw = bpy.types.SpaceView3D.draw_handler_add(
-                self.draw_callback_post_view, (self, context),
+        cls._handle_post_draw = bpy.types.SpaceView3D.draw_handler_add(
+                cls.draw_callback_post_view, (context,),
                 'WINDOW', 'POST_VIEW',
                 )
 
-    @staticmethod
-    def handle_remove():
-        if OffScreenRender._handle_pre_draw is not None:
-            bpy.types.SpaceView3D.draw_handler_remove(OffScreenRender._handle_pre_draw, 'WINDOW')
+    @classmethod
+    def handle_remove(cls):
+        if cls._handle_pre_draw is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(cls._handle_pre_draw, 'WINDOW')
 
-        if OffScreenRender._handle_post_draw is not None:
-            bpy.types.SpaceView3D.draw_handler_remove(OffScreenRender._handle_post_draw, 'WINDOW')
+        if cls._handle_post_draw is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(cls._handle_post_draw, 'WINDOW')
 
-        OffScreenRender._handle_pre_draw = None
-        OffScreenRender._handle_post_draw = None
+        cls._handle_pre_draw = None
+        cls._handle_post_draw = None
+        cls._offscreen = None
+        cls._width = -1
+        cls._height = -1
 
-    # off-screen buffer
-    @staticmethod
-    def _setup_offscreen(context):
-        import gpu
-
+    @classmethod
+    def _offscreen_get(cls, context):
         region = context.region
         width = region.width
         height = region.height
 
-        try:
-            offscreen = gpu.offscreen.new(width, height)
-        except Exception as e:
-            print(e)
-            offscreen = None
+        if (width != cls._width) or \
+           (height != cls._height):
+            import gpu
+            cls._offscreen = None
 
-        return offscreen
+            try:
+                cls._offscreen = gpu.offscreen.new(width, height)
+                cls._width = width
+                cls._height = height
+
+            except Exception as e:
+                print(e)
+
+        return cls._offscreen
 
     @staticmethod
     def _update_offscreen(context, offscreen):
@@ -201,14 +213,7 @@ class OffScreenRender(bpy.types.Operator):
                 self.report({'ERROR'}, "Offscreen render only supported with Cycles")
                 return {'CANCELLED'}
 
-            self._offscreen = OffScreenRender._setup_offscreen(context)
-            if self._offscreen:
-                self._texture = self._offscreen.color_texture
-            else:
-                self.report({'ERROR'}, "Error initializing offscreen buffer. More details in the console")
-                return {'CANCELLED'}
-
-            OffScreenRender.handle_add(self, context)
+            OffScreenRender.handle_add(context)
             OffScreenRender.is_enabled = True
 
             if context.area:
@@ -220,7 +225,6 @@ class OffScreenRender(bpy.types.Operator):
     def cancel(self, context):
         OffScreenRender.handle_remove()
         OffScreenRender.is_enabled = False
-        OffScreenRender.offscreen = None
 
         if context.area:
             context.area.tag_redraw()
